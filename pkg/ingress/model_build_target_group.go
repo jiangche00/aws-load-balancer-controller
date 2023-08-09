@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -204,7 +205,29 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 
 	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(svc.Namespace, "")
 	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(svc.Name, "")
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+
+	defaultName := fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+
+	explicitTgNames := sets.String{}
+	tgName := ""
+	for _, member := range t.ingGroup.Members {
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixTargetGroupName, &tgName, member.Ing.Annotations); !exists {
+			continue
+		}
+		explicitTgNames.Insert(tgName)
+	}
+	if len(explicitTgNames) == 1 {
+		name, _ := explicitTgNames.PopAny()
+		// The name of the target group can only have up to 32 characters
+		if len(name) > 32 {
+			return defaultName
+		}
+		return ingKey.Name
+	}
+	if len(explicitTgNames) > 1 {
+		return ingKey.Name
+	}
+	return ingKey.Name
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.TargetType, error) {

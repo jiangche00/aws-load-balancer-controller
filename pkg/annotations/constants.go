@@ -9,6 +9,7 @@ const (
 	IngressSuffixLoadBalancerName             = "load-balancer-name"
 	IngressSuffixGroupName                    = "group.name"
 	IngressSuffixGroupOrder                   = "group.order"
+	IngressSuffixTargetGroupName              = "targetgroup.name"
 	IngressSuffixTags                         = "tags"
 	IngressSuffixIPAddressType                = "ip-address-type"
 	IngressSuffixScheme                       = "scheme"
